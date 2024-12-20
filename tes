@@ -1,0 +1,62 @@
+from sklearn.ensemble import RandomForestClassifier
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.model_selection import train_test_split,GridSearchCV
+
+df = pd.read_csv("./DATA/heart_disease_uci.csv")
+#checking head
+df.head()
+
+##Cleaning the Data
+#Converting true/false to 1 and 0
+df["fbs"] = df["fbs"].apply(lambda x: 1 if x == True else 0)
+df["exang"] = df["exang"].apply(lambda x: 1 if x == True else 0)
+#convert sex to 1 = Male and 0 = Female
+df["sex"] = df["sex"].apply(lambda x: 1 if x == "Male" else 0)
+
+#apply -1 so the ML knows that there is no Value
+df["ca"].fillna(-1, inplace=True)
+#same applies to slope 
+dummies = pd.get_dummies(df["slope"], drop_first=True)
+df = pd.concat([df, dummies], axis=1)
+df.drop("slope", axis=1, inplace=True)
+#change the thal colums to dummies and replace NaN with Uknown
+df["thal"].fillna("unknown", inplace=True)
+dummies = pd.get_dummies(df["thal"], drop_first=True)
+df = pd.concat([df, dummies], axis=1)
+#change the thal colums to dummies
+dummies = pd.get_dummies(df, columns=['cp'])
+df = pd.concat([df, dummies], axis=1)
+
+#for the rest we will use for the NaN values the median values
+df["trestbps"].fillna(df["trestbps"].median(),inplace=True)
+df["chol"].fillna(df["chol"].median(),inplace=True)
+df["thalch"].fillna(df["thalch"].median(),inplace=True)
+df["oldpeak"].fillna(df["oldpeak"].median(),inplace=True)
+
+#Drop columns since we converted them
+df.drop("dataset",axis=1,inplace=True)
+df.drop("cp",axis=1,inplace=True)
+df.drop("restecg",axis=1,inplace=True)
+df.drop("thal",axis=1,inplace=True)
+
+#After Cleaning the data we are now training our modell
+X = df.drop(["cp_asymptomatic","cp_atypical angina","cp_non-anginal","cp_typical angina"],axis=1)
+y = df[["cp_asymptomatic","cp_atypical angina","cp_non-anginal","cp_typical angina"]]
+
+X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.3,random_state=101)
+
+#Using GridSearch to find the best Hyperparameters and training our modell
+param= {"n_estimators":[1,5,8,10,20,25], "min_samples_leaf":[2,4,6,7,8,10], "min_samples_split":[2,10,24,30,41,50], "max_depth":[3,6,9,12,15,18]}
+grid = GridSearchCV(RandomForestClassifier(),param_grid=param,verbose=3)
+
+grid.fit(X_train, y_train)
+
+predicted = grid.predict(X_test)
+
+#Evulation of our Random Forest
+print(confusion_matrix(y_test, predicted))
+print("\n")
+print(classification_report(y_test, predicted))
